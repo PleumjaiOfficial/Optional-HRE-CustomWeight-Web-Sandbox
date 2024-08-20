@@ -228,7 +228,7 @@ columns = ['PERSON_ID', 'SOURCE'] + scores_columns
 data = pd.DataFrame(columns=columns)
 
 # Streamlit app title
-st.title("Employee Score Input Simulation")
+st.title("For You HR BPNEXT✨, Sandbox for Toptalent Simulation from Weighted Score")
 # st.subheader("How many employees do you want to compare?")
 # num_emp = st.number_input("Number of employees", min_value=1, max_value=100, value=3)
 
