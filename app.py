@@ -266,7 +266,7 @@ st.markdown("***")
 base_weights = {}
 
 # Input fields for each source weight using columns
-st.header("Step 2: Input Weights for Each Source")
+st.header("Step 2: Confidence percentage (% Confidence)")
 weight_cols = st.columns(len(sources))
 for i, source in enumerate(sources):
     with weight_cols[i]:
@@ -281,8 +281,8 @@ st.markdown("***")
 
 if not data.empty:
     weighted_data = data.copy()
-    # Step 3: Apply the weights
-    st.header("Step 3: Apply Weights and View Weighted Scores")
+    # Step 3: score after add the confidence percentage
+    st.header("Step 3: The results calculated using the confidence percentage")
 
     for source in sources:
         weight = base_weights[source]
@@ -291,7 +291,6 @@ if not data.empty:
     st.write("Weighted DataFrame:")
     st.dataframe(weighted_data)
 
-    # Optionally, sum up the weighted scores for each employee
     sum_scores = weighted_data.groupby("PERSON_ID")[scores_columns].sum().reset_index()
     st.write("Sum of Weighted Scores by Employee:")
     st.dataframe(sum_scores)
