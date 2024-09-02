@@ -184,7 +184,7 @@ def normalization_pms_toptalent(df, score_columns, weight_matrix, criteria):
 
     return reg_df
 
-def toptalent(df, score_columns, weight_matrix, criteria):
+def toptalent(df, score_columns, weight_matrix, criteria, q):
     
     scaler = MinMaxScaler(feature_range=(0, 100))
     scaled_data = scaler.fit_transform(df[score_columns])
@@ -196,7 +196,6 @@ def toptalent(df, score_columns, weight_matrix, criteria):
     reg_df = normalization_pms_toptalent(final_selection_df, [col + '_SCALED' for col in score_columns], weight_matrix, criteria)
 
     bin_labels = ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond']
-    q = [0, .4, .6, .8, .9, .1]
 
     tier_table = tier_rank(bin_labels, q, reg_df['TALENT_SCORE'])
     tier_table['Percentile'] = q[:-1]
@@ -220,7 +219,7 @@ def toptalent(df, score_columns, weight_matrix, criteria):
 # """
 
 # Define job families and sources
-sources = ["Direct Manager", "Other Manager", "Peer within Function", "Self", "External", "Peer across Department", "Subordinate"]
+sources = ["Direct Manager", "Other Manager", "Peer within Function", "Self", "Subordinate", "Peer across Department", "External", "Unrated"]
 scores_columns = ['CQ1', 'CQ2', 'CQ3', 'CQ4', 'DQ1', 'DQ2', 'DQ3', 'DQ4', 'EQ1', 'EQ2', 'EQ3', 'EQ4']
 columns = ['PERSON_ID', 'SOURCE'] + scores_columns
 
@@ -230,8 +229,6 @@ data = pd.DataFrame(columns=columns)
 # Streamlit app title
 st.title("For You, HR BPNEXT✨")
 st.write("Web Sandbox for Toptalent Simulation from Weighted Score")
-# st.subheader("How many employees do you want to compare?")
-# num_emp = st.number_input("Number of employees", min_value=1, max_value=100, value=3)
 
 # Define expected columns
 expected_columns = ['PERSON_ID', 'SOURCE', 'CQ1', 'CQ2', 'CQ3', 'CQ4', 'DQ1', 'DQ2', 'DQ3', 'DQ4', 'EQ1', 'EQ2', 'EQ3', 'EQ4']
@@ -255,9 +252,6 @@ if uploaded_file:
     except Exception as e:
         st.error(f"Error loading file: {e}")
 
-# Display the resulting DataFrame
-# st.write("Resulting DataFrame:")
-# st.dataframe(data)
 
 # Line break
 st.markdown("***")
@@ -266,11 +260,11 @@ st.markdown("***")
 base_weights = {}
 
 # Input fields for each source weight using columns
-st.header("Step 2: Confidence percentage (% Confidence)")
+st.header("Step 2: Input Weights for Each Source")
 weight_cols = st.columns(len(sources))
 for i, source in enumerate(sources):
     with weight_cols[i]:
-        base_weights[source] = st.number_input(f"{source}", min_value=0.0, max_value=1.0, value=0.1)
+        base_weights[source] = st.number_input(f"{source}", min_value=0.0, max_value=1.0, value=0.5)
 
 # Display the weights
 st.write("Base Weights Dictionary:")
@@ -279,47 +273,70 @@ st.json(base_weights)
 # Line break
 st.markdown("***")
 
+# Define the bin labels
+bin_labels = ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond']
+
+# Create sliders for each value in the q list
+st.header("Step 3: Set Percentile Ranges for Talent Score Tiers")
+
+# Bronze range
+bronze_max = st.slider('Bronze - Max', min_value=0.0, max_value=1.0, value=0.4, step=0.01)
+
+# Silver range
+silver_min = bronze_max
+silver_max = st.slider('Silver - Max', min_value=0.0, max_value=1.0, value=0.55, step=0.01)
+
+# Gold range
+gold_min = silver_max
+gold_max = st.slider('Gold - Max', min_value=0.0, max_value=1.0, value=0.70, step=0.01)
+
+# Platinum range
+platinum_min = gold_max
+platinum_max = st.slider('Platinum - Max', min_value=0.0, max_value=1.0, value=0.85, step=0.01)
+
+# Combine the ranges into the q list
+q = [0, bronze_max, silver_max, gold_max, platinum_max, 1]
+
+# Call your tier_rank function with the input values
+# Display the results
+st.write("Tier Table:")
+st.write(q)
+
+
 if not data.empty:
-    weighted_data = data.copy()
-    # Step 3: score after add the confidence percentage
-    st.header("Step 3: The results calculated using the confidence percentage")
 
-    for source in sources:
-        weight = base_weights[source]
-        weighted_data.loc[weighted_data['SOURCE'] == source, scores_columns] *= weight
+    # Step 3: Apply the weights
+    st.header("Step 4: Add the confident level and View raw scores")
 
-    st.write("Weighted DataFrame:")
-    st.dataframe(weighted_data)
+    # Map the SOURCE column to the corresponding confidence levels
+    data['CONFIDENT_LEVEL'] = data['SOURCE'].map(base_weights)
 
-    sum_scores = weighted_data.groupby("PERSON_ID")[scores_columns].sum().reset_index()
-    st.write("Sum of Weighted Scores by Employee:")
-    st.dataframe(sum_scores)
+    data['NORMALIZED_CONFIDENCE'] = data.groupby('PERSON_ID')['CONFIDENT_LEVEL'].transform(lambda x: x / x.sum())
+    st.dataframe(data)
+
+
+    # Step 4: Normalization score
+    st.header("Step 5: Normalization score")
+    for col in scores_columns:
+        data[col] = data[col] * data['NORMALIZED_CONFIDENCE']
+    st.dataframe(data)
+
 
     # Sum the scores for each category
-    sum_scores['TOTAL_C'] = sum_scores[['CQ1', 'CQ2', 'CQ3', 'CQ4']].sum(axis=1)
-    sum_scores['TOTAL_D'] = sum_scores[['DQ1', 'DQ2', 'DQ3', 'DQ4']].sum(axis=1)
-    sum_scores['TOTAL_E'] = sum_scores[['EQ1', 'EQ2', 'EQ3', 'EQ4']].sum(axis=1)
-
-    # Display the DataFrame with summed scores
-    st.write("Sum of Total Scores by Employee:")
-    st.dataframe(sum_scores)
-
+    data['TOTAL_C'] = data[['CQ1', 'CQ2', 'CQ3', 'CQ4']].sum(axis=1)
+    data['TOTAL_D'] = data[['DQ1', 'DQ2', 'DQ3', 'DQ4']].sum(axis=1)
+    data['TOTAL_E'] = data[['EQ1', 'EQ2', 'EQ3', 'EQ4']].sum(axis=1)
+    data= data.groupby("PERSON_ID")[["TOTAL_C", "TOTAL_D" ,"TOTAL_E"]].sum().reset_index()
     # Line break
     st.markdown("***")
-    st.header("Step 4: Evaluate the toptalent")
-    # Display the DataFrame with summed scores
-    st.write("Sum of Total Scores by Employee:")
-    st.dataframe(sum_scores[['PERSON_ID', 'TOTAL_C', 'TOTAL_D', 'TOTAL_E']])
-
-    criteria = [True] * 3  # 7 sources
-    weighted_total_columns = [100, 100, 100]
-    total_columns = ['TOTAL_C', 'TOTAL_D', 'TOTAL_E']
+    # st.header("The data for input to model")
+    # st.dataframe(data)
 
     if st.button("Calculate Top Talent"):
         with st.spinner("Calculating..."):
             st_output = st.empty()  # Placeholder to capture print outputs
             # result_df, tier_table = toptalent_dynamic_weight(data, criteria, source_columns, total_columns, base_weights)
-            result_df, tier_table =  toptalent(sum_scores, ['TOTAL_C', 'TOTAL_D', 'TOTAL_E'], [100, 100, 100], [True, True, True])
+            result_df, tier_table =  toptalent(data, ['TOTAL_C', 'TOTAL_D', 'TOTAL_E'], [100/3, 100/3, 100/3], [True, True, True], q)
         
         st.success("Calculation Complete!")
         st.subheader("Top Talent Result")
