@@ -174,7 +174,7 @@ def normalization_pms_toptalent(df, score_columns, weight_matrix, criteria):
     _result = 1 - raw
 
     _max = 1
-    _min = 0
+    _min = 0.3
 
     result = adjust_score(_max, _min, _result)
 
